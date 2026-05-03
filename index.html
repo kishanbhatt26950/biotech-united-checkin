@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Biotech United — Event Check-in</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0f0d;
+    --surface: #111815;
+    --surface2: #1a2420;
+    --border: #1f2e29;
+    --border2: #2a3d36;
+    --accent: #00c97a;
+    --accent-dim: #00c97a22;
+    --text: #e8f0ed;
+    --text2: #8a9e97;
+    --text3: #4d6059;
+    --hiring: #f0c040;
+    --hiring-dim: #f0c04018;
+    --seeker: #4db8ff;
+    --seeker-dim: #4db8ff15;
+    --network: #c084fc;
+    --network-dim: #c084fc15;
+    --consult: #fb923c;
+    --consult-dim: #fb923c15;
+    --danger: #f87171;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
+  #loading { position: fixed; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; z-index: 100; transition: opacity 0.4s; }
+  #loading.hidden { opacity: 0; pointer-events: none; }
+  .load-logo { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--accent); letter-spacing: 3px; text-transform: uppercase; }
+  .load-spinner { width: 32px; height: 32px; border: 2px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  .load-text { font-size: 12px; color: var(--text3); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  header { padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); }
+  .logo { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--accent); letter-spacing: 2px; }
+  .event-badge { font-family: 'DM Mono', monospace; font-size: 11px; background: var(--accent-dim); color: var(--accent); padding: 4px 10px; border-radius: 4px; border: 1px solid var(--accent)33; }
+  .stats-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--border); border-bottom: 1px solid var(--border); }
+  .stat { background: var(--surface); padding: 14px 20px; display: flex; flex-direction: column; gap: 2px; }
+  .stat-val { font-size: 24px; font-weight: 600; color: var(--text); line-height: 1; }
+  .stat-val.accent { color: var(--accent); }
+  .stat-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; }
+  .tabs { display: flex; border-bottom: 1px solid var(--border); padding: 0 24px; }
+  .tab { font-size: 12px; font-weight: 500; padding: 12px 16px; border: none; background: transparent; color: var(--text3); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; letter-spacing: 0.5px; text-transform: uppercase; font-family: 'DM Mono', monospace; transition: color 0.15s; }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .date-selector { padding: 12px 24px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); background: var(--surface); }
+  .date-selector label { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; letter-spacing: 1px; text-transform: uppercase; }
+  .date-input { background: var(--surface2); border: 1px solid var(--border2); border-radius: 6px; padding: 6px 10px; color: var(--text); font-size: 13px; font-family: 'DM Mono', monospace; outline: none; cursor: pointer; }
+  .refresh-btn { font-size: 11px; font-family: 'DM Mono', monospace; padding: 6px 12px; border-radius: 4px; border: 1px solid var(--accent)44; background: var(--accent-dim); color: var(--accent); cursor: pointer; }
+  .toolbar { padding: 12px 24px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; border-bottom: 1px solid var(--border); }
+  .search { flex: 1; min-width: 200px; background: var(--surface2); border: 1px solid var(--border2); border-radius: 6px; padding: 8px 12px; color: var(--text); font-size: 13px; outline: none; }
+  .search::placeholder { color: var(--text3); }
+  .filter-btn { font-size: 11px; font-family: 'DM Mono', monospace; padding: 6px 12px; border-radius: 4px; border: 1px solid var(--border2); background: transparent; color: var(--text3); cursor: pointer; white-space: nowrap; transition: all 0.15s; }
+  .filter-btn.active { background: var(--accent-dim); color: var(--accent); border-color: var(--accent)44; }
+  .btn-walkin-toggle { font-size: 11px; font-family: 'DM Mono', monospace; padding: 6px 14px; border-radius: 4px; border: 1px solid var(--accent)44; background: transparent; color: var(--accent); cursor: pointer; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 900px; }
+  thead tr { border-bottom: 1px solid var(--border2); }
+  th { font-size: 10px; font-weight: 500; color: var(--text3); text-align: left; padding: 10px 16px; font-family: 'DM Mono', monospace; letter-spacing: 1px; text-transform: uppercase; white-space: nowrap; }
+  td { padding: 10px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; font-size: 13px; }
+  tr:hover td { background: var(--surface2); }
+  tr.checked-in td { opacity: 0.45; }
+  tr.priority-row td:first-child { border-left: 2px solid var(--hiring); }
+  .badge { display: inline-block; font-size: 10px; font-family: 'DM Mono', monospace; padding: 2px 7px; border-radius: 3px; font-weight: 500; white-space: nowrap; }
+  .badge-hiring { background: var(--hiring-dim); color: var(--hiring); border: 1px solid var(--hiring)33; }
+  .badge-seeker { background: var(--seeker-dim); color: var(--seeker); border: 1px solid var(--seeker)33; }
+  .badge-network { background: var(--network-dim); color: var(--network); border: 1px solid var(--network)33; }
+  .badge-consult { background: var(--consult-dim); color: var(--consult); border: 1px solid var(--consult)33; }
+  .btn { font-size: 11px; font-family: 'DM Mono', monospace; padding: 5px 12px; border-radius: 4px; border: 1px solid var(--border2); cursor: pointer; font-weight: 500; transition: all 0.15s; white-space: nowrap; }
+  .btn-checkin { background: var(--accent-dim); color: var(--accent); border-color: var(--accent)44; }
+  .btn-undo { background: transparent; color: var(--text3); }
+  select.inline { font-size: 11px; font-family: 'DM Mono', monospace; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border2); background: var(--surface2); color: var(--text2); cursor: pointer; outline: none; }
+  .consent-wrap { display: flex; flex-direction: column; gap: 3px; }
+  .form-consent { font-size: 10px; font-family: 'DM Mono', monospace; }
+  .form-yes { color: var(--accent); }
+  .form-no { color: var(--text3); }
+  .btn-consent-on { background: var(--accent-dim); color: var(--accent); border-color: var(--accent)44; }
+  .btn-consent-off { background: transparent; color: var(--text3); }
+  .notes-input { font-size: 12px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border2); background: transparent; color: var(--text); width: 100%; outline: none; }
+  .notes-input::placeholder { color: var(--text3); }
+  .summary-grid { padding: 20px 24px; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .scard { background: var(--surface); border: 1px solid var(--border2); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+  .scard.priority { border-color: var(--hiring)44; }
+  .scard-name { font-size: 14px; font-weight: 600; color: var(--text); }
+  .scard-org { font-size: 11px; color: var(--text3); }
+  .scard-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text3); }
+  .scard-val { font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500; }
+  .val-yes { color: var(--accent); }
+  .val-no { color: var(--danger); }
+  .val-hot { color: var(--hiring); }
+  .val-warm { color: var(--consult); }
+  .val-cold { color: var(--text3); }
+  .scard-notes { font-size: 11px; color: var(--text2); border-top: 1px solid var(--border); padding-top: 8px; }
+  .walkin-section { padding: 20px 24px; border-top: 1px solid var(--border); display: none; }
+  .walkin-section.visible { display: block; }
+  .walkin-title { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--accent); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 12px; }
+  .walkin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; margin-bottom: 12px; }
+  .walkin-input { background: var(--surface2); border: 1px solid var(--border2); border-radius: 6px; padding: 8px 12px; color: var(--text); font-size: 13px; outline: none; width: 100%; }
+  .walkin-select { background: var(--surface2); border: 1px solid var(--border2); border-radius: 6px; padding: 8px 12px; color: var(--text); font-size: 13px; outline: none; width: 100%; cursor: pointer; }
+  .btn-add { background: var(--accent); color: var(--bg); border: none; font-weight: 600; padding: 8px 20px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+  .empty { text-align: center; padding: 40px; color: var(--text3); font-size: 13px; }
+  .saving { position: fixed; bottom: 16px; right: 16px; background: var(--surface2); border: 1px solid var(--border2); border-radius: 6px; padding: 8px 14px; font-size: 12px; font-family: 'DM Mono', monospace; color: var(--accent); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+  .saving.visible { opacity: 1; }
+  .error-bar { background: #7f1d1d; border-bottom: 1px solid #ef444433; padding: 10px 24px; font-size: 12px; color: var(--danger); display: none; }
+  .error-bar.visible { display: block; }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="load-logo">Biotech United</div>
+  <div class="load-spinner"></div>
+  <div class="load-text">Loading attendees...</div>
+</div>
+
+<div class="saving" id="saving">Saving...</div>
+<div class="error-bar" id="error-bar">⚠ Could not connect to Google Sheets. Check your deployment URL and try refreshing.</div>
+
+<header>
+  <div class="logo">BIOTECH UNITED</div>
+  <div class="event-badge" id="event-badge">05MAY2026</div>
+</header>
+
+<div class="stats-bar">
+  <div class="stat"><div class="stat-val" id="stat-total">—</div><div class="stat-label">Total RSVPs</div></div>
+  <div class="stat"><div class="stat-val accent" id="stat-here">0</div><div class="stat-label">Checked In</div></div>
+  <div class="stat"><div class="stat-val" id="stat-signup">0</div><div class="stat-label">Signed Up</div></div>
+  <div class="stat"><div class="stat-val" id="stat-consent">0</div><div class="stat-label">Follow-up Ok</div></div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="showTab('checkin',this)">Check-in</button>
+  <button class="tab" onclick="showTab('summary',this)">Follow-up Summary</button>
+</div>
+
+<div id="tab-checkin">
+  <div class="date-selector">
+    <label>Event Date</label>
+    <input type="date" class="date-input" id="event-date" onchange="filterByDate()"/>
+    <button class="refresh-btn" onclick="loadData()">↻ Refresh</button>
+  </div>
+  <div class="toolbar">
+    <input type="text" class="search" id="search" placeholder="Search by name, role, company..." oninput="renderTable()"/>
+    <button class="filter-btn active" data-f="all" onclick="setFilter(this)">All</button>
+    <button class="filter-btn" data-f="priority" onclick="setFilter(this)">★ Priority</button>
+    <button class="filter-btn" data-f="hiring" onclick="setFilter(this)">Hiring</button>
+    <button class="filter-btn" data-f="seeker" onclick="setFilter(this)">Job Seekers</button>
+    <button class="filter-btn" data-f="network" onclick="setFilter(this)">Networking</button>
+    <button class="filter-btn" data-f="here" onclick="setFilter(this)">Here</button>
+    <button class="filter-btn" data-f="absent" onclick="setFilter(this)">Not yet</button>
+    <button class="btn-walkin-toggle" onclick="toggleWalkin()">+ Walk-in</button>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Name</th><th>Type</th><th>Role / Company</th>
+        <th>Arrived</th><th>Signed Up</th><th>Interest</th><th>Follow-up</th><th>Notes</th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+  <div class="walkin-section" id="walkin-section">
+    <div class="walkin-title">Add Walk-in</div>
+    <div class="walkin-grid">
+      <input class="walkin-input" id="wi-firstname" placeholder="First name"/>
+      <input class="walkin-input" id="wi-lastname" placeholder="Last name"/>
+      <input class="walkin-input" id="wi-email" placeholder="Email (optional)"/>
+      <select class="walkin-select" id="wi-type">
+        <option value="Job Seeker">Job Seeker</option>
+        <option value="Hiring/Building a Team">Hiring</option>
+        <option value="Just Networking">Networking</option>
+        <option value="Consulting/Freelance opportunities">Consulting</option>
+      </select>
+      <input class="walkin-input" id="wi-role" placeholder="Role (optional)"/>
+      <input class="walkin-input" id="wi-company" placeholder="Company (optional)"/>
+    </div>
+    <button class="btn-add" onclick="addWalkin()">Add to List</button>
+  </div>
+</div>
+
+<div id="tab-summary" style="display:none;">
+  <div class="toolbar">
+    <button class="filter-btn active" data-sf="all" onclick="setSFilter(this)">All checked in</button>
+    <button class="filter-btn" data-sf="followup" onclick="setSFilter(this)">Follow-up yes</button>
+    <button class="filter-btn" data-sf="hiring" onclick="setSFilter(this)">Hiring only</button>
+    <button class="filter-btn" data-sf="hot" onclick="setSFilter(this)">Hot leads</button>
+  </div>
+  <div class="summary-grid" id="summary-grid"></div>
+</div>
+
+<script>
+let allAttendees = [];
+let filter = 'all';
+let sfilter = 'all';
+let selectedDate = '';
+
+const today = new Date();
+document.getElementById('event-date').value = today.toISOString().split('T')[0];
+document.getElementById('event-badge').textContent = formatDateBadge(today);
+
+function formatDateBadge(d) {
+  const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+  return String(d.getDate()).padStart(2,'0') + months[d.getMonth()] + d.getFullYear();
+}
+
+function parseEventDate(val) {
+  if (!val) return null;
+  const d = new Date(val);
+  if (!isNaN(d)) return d;
+  const months = {JAN:0,FEB:1,MAR:2,APR:3,MAY:4,JUN:5,JUL:6,AUG:7,SEP:8,OCT:9,NOV:10,DEC:11};
+  const m = String(val).match(/^(\d{2})([A-Z]{3})(\d{4})$/i);
+  if (m) return new Date(parseInt(m[3]), months[m[2].toUpperCase()], parseInt(m[1]));
+  return null;
+}
+
+function filterByDate() {
+  selectedDate = document.getElementById('event-date').value;
+  const d = new Date(selectedDate);
+  document.getElementById('event-badge').textContent = formatDateBadge(d);
+  renderTable();
+}
+
+function loadData() {
+  showLoading(true);
+  google.script.run
+    .withSuccessHandler(function(data) {
+      allAttendees = data.map(function(r) {
+        return Object.assign({}, r, {
+          _checkedIn: r['Checked In'] === 'TRUE' || r['Checked In'] === true,
+          _signedUp: r['Signed Up'] === 'TRUE' || r['Signed Up'] === true,
+          _followUp: r['Follow-up Consent'] === 'TRUE' || r['Follow-up Consent'] === true,
+          _interest: r['Interest Level'] || '—',
+          _notes: r['Notes'] || '',
+          _marketingOk: String(r['Email'] || '').includes('accepts marketing: true'),
+          _email: String(r['Email'] || '').split(',')[0].trim()
+        });
+      });
+      document.getElementById('error-bar').classList.remove('visible');
+      filterByDate();
+      updateStats();
+      showLoading(false);
+    })
+    .withFailureHandler(function(err) {
+      document.getElementById('error-bar').classList.add('visible');
+      console.error(err);
+      showLoading(false);
+    })
+    .getAttendees();
+}
+
+function showLoading(v) {
+  document.getElementById('loading').classList.toggle('hidden', !v);
+}
+
+function getAttendeeType(a) {
+  const t = String(a['Attending As'] || '').toLowerCase();
+  if (t.includes('hiring')) return 'hiring';
+  if (t.includes('consulting')) return 'consult';
+  if (t.includes('networking')) return 'network';
+  return 'seeker';
+}
+
+function isPriority(a) { return getAttendeeType(a) === 'hiring'; }
+
+function getDisplayName(a) {
+  return ((a['First Name'] || '') + ' ' + (a['Last Name'] || '')).trim() || 'Unknown';
+}
+
+function getRoleOrg(a) {
+  const type = getAttendeeType(a);
+  if (type === 'hiring') return [a['Hiring Title'], a['Hiring Company']];
+  if (type === 'network') return [a['Network Title'], a['Network Company']];
+  if (type === 'consult') return [a['Consulting Type'], ''];
+  return [a['JS Role'], ''];
+}
+
+function getBadges(a) {
+  return String(a['Attending As'] || '').split(',').map(function(t) {
+    t = t.trim().toLowerCase();
+    if (t.includes('hiring')) return '<span class="badge badge-hiring">Hiring</span>';
+    if (t.includes('consulting')) return '<span class="badge badge-consult">Consulting</span>';
+    if (t.includes('networking')) return '<span class="badge badge-network">Networking</span>';
+    if (t.includes('job seeker')) return '<span class="badge badge-seeker">Job Seeker</span>';
+    return '';
+  }).join(' ');
+}
+
+function matchesDate(a) {
+  if (!selectedDate) return true;
+  const eventDate = parseEventDate(a['Event Date']);
+  if (!eventDate) return true;
+  const sel = new Date(selectedDate);
+  return eventDate.getFullYear() === sel.getFullYear() &&
+         eventDate.getMonth() === sel.getMonth() &&
+         eventDate.getDate() === sel.getDate();
+}
+
+function setFilter(btn) {
+  document.querySelectorAll('#tab-checkin .filter-btn').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+  filter = btn.dataset.f;
+  renderTable();
+}
+
+function setSFilter(btn) {
+  document.querySelectorAll('#tab-summary .filter-btn').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+  sfilter = btn.dataset.sf;
+  renderSummary();
+}
+
+function showTab(tab, btn) {
+  document.getElementById('tab-checkin').style.display = tab === 'checkin' ? '' : 'none';
+  document.getElementById('tab-summary').style.display = tab === 'summary' ? '' : 'none';
+  document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+  btn.classList.add('active');
+  if (tab === 'summary') renderSummary();
+}
+
+function toggleWalkin() {
+  document.getElementById('walkin-section').classList.toggle('visible');
+}
+
+function updateStats() {
+  const dated = allAttendees.filter(matchesDate);
+  document.getElementById('stat-total').textContent = dated.length;
+  document.getElementById('stat-here').textContent = dated.filter(function(a) { return a._checkedIn; }).length;
+  document.getElementById('stat-signup').textContent = dated.filter(function(a) { return a._signedUp; }).length;
+  document.getElementById('stat-consent').textContent = dated.filter(function(a) { return a._followUp; }).length;
+}
+
+function renderTable() {
+  const q = document.getElementById('search').value.toLowerCase();
+  let list = allAttendees.filter(matchesDate);
+  if (filter === 'priority') list = list.filter(isPriority);
+  else if (filter === 'hiring') list = list.filter(function(a) { return getAttendeeType(a) === 'hiring'; });
+  else if (filter === 'seeker') list = list.filter(function(a) { return getAttendeeType(a) === 'seeker'; });
+  else if (filter === 'network') list = list.filter(function(a) { return getAttendeeType(a) === 'network'; });
+  else if (filter === 'here') list = list.filter(function(a) { return a._checkedIn; });
+  else if (filter === 'absent') list = list.filter(function(a) { return !a._checkedIn; });
+  list.sort(function(a, b) { return (isPriority(b) ? 1 : 0) - (isPriority(a) ? 1 : 0); });
+  if (q) list = list.filter(function(a) {
+    return [getDisplayName(a), a['JS Role'], a['Hiring Company'], a['Network Company'], a['JS Expertise']].some(function(s) { return s && s.toLowerCase().includes(q); });
+  });
+  const tbody = document.getElementById('tbody');
+  if (!list.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty">No attendees match.</td></tr>'; return; }
+  tbody.innerHTML = list.map(function(a) {
+    const name = getDisplayName(a);
+    const type = getAttendeeType(a);
+    const roleOrg = getRoleOrg(a);
+    const role = roleOrg[0]; const org = roleOrg[1];
+    const priority = isPriority(a);
+    const starHtml = priority ? '<span style="color:var(--hiring);margin-right:4px;font-size:11px;">★</span>' : '';
+    const orgHtml = org ? '<div style="font-size:11px;color:var(--text3);margin-top:1px;">' + org + '</div>' : '';
+    const roleHtml = role ? role + orgHtml : orgHtml || '—';
+    const arrivedBtn = a._checkedIn
+      ? '<button class="btn btn-undo" onclick="toggleField(' + a._row + ',\'Checked In\',false)">Undo</button>'
+      : '<button class="btn btn-checkin" onclick="toggleField(' + a._row + ',\'Checked In\',true)">Check in</button>';
+    const signedBtn = type !== 'hiring'
+      ? (a._signedUp
+          ? '<button class="btn btn-undo" onclick="toggleField(' + a._row + ',\'Signed Up\',false)">Yes</button>'
+          : '<button class="btn" onclick="toggleField(' + a._row + ',\'Signed Up\',true)">No</button>')
+      : '<span style="color:var(--text3);font-size:11px;">N/A</span>';
+    const interestSel = '<select class="inline" onchange="updateField(' + a._row + ',\'Interest Level\',this.value)">' +
+      ['—','Cold','Warm','Hot'].map(function(o) { return '<option' + (a._interest === o ? ' selected' : '') + '>' + o + '</option>'; }).join('') +
+      '</select>';
+    const formConsentHtml = a._marketingOk
+      ? '<span class="form-consent form-yes">Form: yes</span>'
+      : '<span class="form-consent form-no">Form: no</span>';
+    const consentBtn = a._followUp
+      ? '<button class="btn btn-consent-on" onclick="toggleField(' + a._row + ',\'Follow-up Consent\',false)">Consented</button>'
+      : '<button class="btn btn-consent-off" onclick="toggleField(' + a._row + ',\'Follow-up Consent\',true)">Get consent</button>';
+    return '<tr class="' + (a._checkedIn ? 'checked-in' : '') + (priority ? ' priority-row' : '') + '">' +
+      '<td>' + starHtml + name + '<div style="font-size:11px;color:var(--text3);font-family:\'DM Mono\',monospace;">' + a._email + '</div></td>' +
+      '<td>' + getBadges(a) + '</td>' +
+      '<td>' + roleHtml + '</td>' +
+      '<td>' + arrivedBtn + '</td>' +
+      '<td>' + signedBtn + '</td>' +
+      '<td>' + interestSel + '</td>' +
+      '<td><div class="consent-wrap">' + formConsentHtml + consentBtn + '</div></td>' +
+      '<td><input class="notes-input" placeholder="Notes..." value="' + a._notes.replace(/"/g, '&quot;') + '" onchange="updateField(' + a._row + ',\'Notes\',this.value)"/></td>' +
+      '</tr>';
+  }).join('');
+}
+
+function toggleField(row, field, value) {
+  const a = allAttendees.find(function(x) { return x._row === row; });
+  if (!a) return;
+  if (field === 'Checked In') a._checkedIn = value;
+  if (field === 'Signed Up') a._signedUp = value;
+  if (field === 'Follow-up Consent') a._followUp = value;
+  updateStats();
+  renderTable();
+  saveToSheet(row, JSON.parse('{"' + field + '":"' + (value ? 'TRUE' : 'FALSE') + '"}'));
+}
+
+function updateField(row, field, value) {
+  const a = allAttendees.find(function(x) { return x._row === row; });
+  if (!a) return;
+  if (field === 'Interest Level') a._interest = value;
+  if (field === 'Notes') a._notes = value;
+  const updates = {};
+  updates[field] = value;
+  saveToSheet(row, updates);
+}
+
+function saveToSheet(row, updates) {
+  showSaving(true);
+  google.script.run
+    .withSuccessHandler(function() { showSaving(false); })
+    .withFailureHandler(function(err) { console.error('Save failed', err); showSaving(false); })
+    .updateAttendee({row: row, updates: updates});
+}
+
+function addWalkin() {
+  const fn = document.getElementById('wi-firstname').value.trim();
+  const ln = document.getElementById('wi-lastname').value.trim();
+  if (!fn) { alert('First name is required'); return; }
+  const attendee = {
+    'Event Date': document.getElementById('event-badge').textContent,
+    'First Name': fn,
+    'Last Name': ln,
+    'Email': document.getElementById('wi-email').value.trim(),
+    'Attending As': document.getElementById('wi-type').value,
+    'JS Role': document.getElementById('wi-role').value.trim(),
+    'Network Company': document.getElementById('wi-company').value.trim(),
+    'Checked In': 'TRUE'
+  };
+  showSaving(true);
+  google.script.run
+    .withSuccessHandler(function() {
+      ['wi-firstname','wi-lastname','wi-email','wi-role','wi-company'].forEach(function(id) { document.getElementById(id).value = ''; });
+      showSaving(false);
+      loadData();
+    })
+    .withFailureHandler(function(err) { console.error('Walk-in failed', err); showSaving(false); })
+    .addWalkin({attendee: attendee});
+}
+
+function showSaving(v) {
+  document.getElementById('saving').classList.toggle('visible', v);
+}
+
+function renderSummary() {
+  let list = allAttendees.filter(function(a) { return matchesDate(a) && a._checkedIn; });
+  if (sfilter === 'followup') list = list.filter(function(a) { return a._followUp; });
+  if (sfilter === 'hiring') list = list.filter(function(a) { return getAttendeeType(a) === 'hiring'; });
+  if (sfilter === 'hot') list = list.filter(function(a) { return a._interest === 'Hot'; });
+  const grid = document.getElementById('summary-grid');
+  if (!list.length) { grid.innerHTML = '<div class="empty">No attendees match — check some people in first.</div>'; return; }
+  const interestClass = {'Hot':'val-hot','Warm':'val-warm','Cold':'val-cold','—':''};
+  grid.innerHTML = list.map(function(a) {
+    const roleOrg = getRoleOrg(a);
+    const role = roleOrg[0]; const org = roleOrg[1];
+    const priority = isPriority(a);
+    return '<div class="scard' + (priority ? ' priority' : '') + '">' +
+      '<div class="scard-name">' + (priority ? '★ ' : '') + getDisplayName(a) + '</div>' +
+      (org ? '<div class="scard-org">' + org + '</div>' : '') +
+      '<div style="margin:2px 0;">' + getBadges(a) + '</div>' +
+      (role ? '<div class="scard-row"><span>Role</span><span class="scard-val">' + role + '</span></div>' : '') +
+      '<div class="scard-row"><span>Signed up</span><span class="scard-val ' + (a._signedUp ? 'val-yes' : 'val-no') + '">' + (a._signedUp ? 'Yes' : 'No') + '</span></div>' +
+      '<div class="scard-row"><span>Interest</span><span class="scard-val ' + (interestClass[a._interest] || '') + '">' + a._interest + '</span></div>' +
+      '<div class="scard-row"><span>Follow-up ok</span><span class="scard-val ' + (a._followUp ? 'val-yes' : 'val-no') + '">' + (a._followUp ? 'Yes' : 'No') + '</span></div>' +
+      '<div class="scard-row"><span>Form consent</span><span class="scard-val ' + (a._marketingOk ? 'val-yes' : '') + '">' + (a._marketingOk ? 'Yes' : 'No') + '</span></div>' +
+      (a._notes ? '<div class="scard-notes">' + a._notes + '</div>' : '') +
+      '</div>';
+  }).join('');
+}
+
+loadData();
+</script>
+</body>
+</html>
